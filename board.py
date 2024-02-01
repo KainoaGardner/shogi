@@ -2,6 +2,7 @@ import pygame
 from settings import *
 from util import importFolder
 from komamoves import *
+from button import *
 class Board():
     def __init__(self):
         self.board = [["後香","後桂","後銀","後金","後王","後金","後銀","後桂","後香"],
@@ -13,21 +14,17 @@ class Board():
                       ["先歩","先歩","先歩","先歩","先歩","先歩","先歩","先歩","先歩"],
                       ["  ","先角","  ","  ","  ","  ","  ","先飛","  "],
                       ["先香","先桂","先銀","先金","先玉","先金","先銀","先桂","先香"]]
-        # self.board = [["後歩","  ","  ","  ","  ","  ","  ","  ","  ",],
-        #               ["  ","  ","  ","  ","先飛","  ","  ","  ","  ",],
-        #               ["  ","  ","  ","先歩","後桂","  ","  ","  ","  ",],
-        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  "],
-        #               ["  ","  ","先竜","  ","先馬","  ","後桂","先飛","  "],
-        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  "],
-        #               ["  ","  ","  ","  ","後桂","  ","  ","  ","  "],
-        #               ["  ","  ","先歩","  ","先玉","  ","  ","  ","  "],
-        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  ",],]
+
 
         self.komaDict = importFolder("graphics/駒")
         self.clicks = []
         self.sente = True
 
         self.pieceList = ["歩", "香", "桂", "銀", "金", "角", "飛"]
+        self.promotePieceList = ["と", "き", "け", "ぎ", "馬", "竜"]
+        self.promotePieceListMochigoma = ["歩", "香", "桂", "銀", "角", "飛"]
+        self.promoteDict = {"と":"歩","き":"香","け":"桂","ぎ":"銀","馬":"角","竜":"飛"}
+
         self.senMochigoma = []
         self.senMochigomaCount = []
         self.goMochigoma = []
@@ -35,6 +32,18 @@ class Board():
         self.getMochigoma()
 
         self.moveHistory = []
+
+        self.senOuPos = (8,4)
+        self.goOuPos = (0,4)
+
+        self.mousePos = ()
+        self.promoteTile = ""
+        self.promoteTilePos = ()
+        self.promoteMovePos = ()
+        self.promoting = False
+
+        self.naruButton = 0
+        self.cancelButton = 0
 
     def drawBoard(self):
         # for rowIndex,row in enumerate(self.board):
@@ -113,7 +122,11 @@ class Board():
                             if endTile[1] != "玉":
                                 self.goMochigoma.append(endTile[1])
 
+                        # if self.checkPromote(tile,tilePos,movePos):
+                        #     pass
+                        self.checkPromote(tile, tilePos, movePos)
                         self.getMochigoma()
+                        self.getOuPos()
                         self.sente = not self.sente
                         self.moveHistory.append(((tilePos,tile),(movePos,endTile)))
 
@@ -139,6 +152,7 @@ class Board():
                         self.goMochigoma.remove(tile)
 
                     self.getMochigoma()
+                    self.getOuPos()
                     self.sente = not self.sente
                     self.moveHistory.append(((tilePos, tile), (movePos, endTile)))
 
@@ -147,6 +161,23 @@ class Board():
             if self.board[r][col] == f"{turn}歩":
                 return False
         return True
+
+    # def tumi(self):
+    #     if self.sente:
+    #         self.sente = not self.sente
+    #         for r in range(len(self.board)):
+    #             for c in range(len(self.board[r])):
+    #                 if self.board[r][c][0] == "後":
+    #                     if self.validMove(self.board[r][c],(c,r),(self.senOuPos[1],self.senOuPos[0])):
+    #                         return True
+    #         self.sente = not self.sente
+
+    def getOuPos(self):
+        for r,row in enumerate(self.board):
+            if "先玉" in row:
+                self.senOuPos = (r,row.index("先玉"))
+            if "後王" in row:
+                self.goOuPos = (r,row.index("後王"))
 
     def validMove(self,tile,tilePos,movePos):
         if self.sente:
@@ -193,11 +224,22 @@ class Board():
 
     def getMochigoma(self):
         if self.sente:
+            for promotePiece in self.promotePieceList:
+                for index,piece in enumerate(self.senMochigoma):
+                    if piece == promotePiece:
+                        self.senMochigoma[index] = self.promoteDict.get(promotePiece)
+
             self.senMochigomaCount.clear()
             for tile in self.pieceList:
                 amount = self.senMochigoma.count(tile)
                 self.senMochigomaCount.append(amount)
+
         if not self.sente:
+            for promotePiece in self.promotePieceList:
+                for index,piece in enumerate(self.goMochigoma):
+                    if piece == promotePiece:
+                        self.goMochigoma[index] = self.promoteDict.get(promotePiece)
+
             self.goMochigomaCount.clear()
             for tile in self.pieceList:
                 amount = self.goMochigoma.count(tile)
@@ -230,6 +272,64 @@ class Board():
                     countFont = font.render(f"{self.goMochigomaCount[i]}", True, "#ecf0f1")
                     screen.blit(countFont, (imageRect[0] - 7, imageRect[1]))
 
+    def checkPromote(self,tile,tilePos,movePos):
+        if tile[1] in ["歩", "香", "桂", "銀", "角", "飛"]:
+            if tile[0] == "先" and (tilePos[1] < 3 or movePos[1] < 3):
+                self.naruButton = Button(True, "成", 10, 0, "#c0392b")
+                self.cancelButton = Button(True,"X",10,1,"#c0392b")
+                buttonGroup.add(self.naruButton)
+                buttonGroup.add(self.cancelButton)
+
+                self.promoteTile = tile
+                self.promoteTilePos = tilePos
+                self.promoteMovePos = movePos
+
+                self.promoting = True
+
+            elif tile[0] == "後" and (tilePos[1] > 5 or movePos[1] > 5):
+                self.naruButton = Button(True, "成", 0, 8, "#c0392b")
+                self.cancelButton = Button(True,"X",0,7,"#c0392b")
+                buttonGroup.add(self.naruButton)
+                buttonGroup.add(self.cancelButton)
+
+                self.promoteTile = tile
+                self.promoteTilePos = tilePos
+                self.promoteMovePos = movePos
+                self.promoting = True
+
+    def promote(self):
+        # if self.naruButton.checkClick() and not self.cancelButton.checkClick() and self.promoting:
+        print(self.naruButton.checkClick())
+        if self.naruButton.checkClick():
+            if self.sente:
+                turn = "後"
+            elif not self.sente:
+                turn = "先"
+
+            promotePiece = ""
+            match self.board[self.promoteMovePos[1]][self.promoteMovePos[0]][1]:
+                case "歩":
+                    promotePiece = "と"
+                case "香":
+                    promotePiece = "き"
+                case "桂":
+                    promotePiece = "け"
+                case "銀":
+                    promotePiece = "ぎ"
+                case "角":
+                    promotePiece = "馬"
+                case "飛":
+                    promotePiece = "竜"
+
+            peice = turn + promotePiece
+
+            self.board[self.promoteMovePos[1]][self.promoteMovePos[0]] = peice
+            buttonGroup.empty()
+            self.promoting = False
+
+        if self.cancelButton.checkClick():
+            buttonGroup.empty()
+            self.promoting = False
 
     def display(self):
         self.drawBoard()
@@ -239,5 +339,9 @@ class Board():
         self.displayMochigoma()
         self.drawLines()
 
+        if len(buttonGroup) > 0:
+            for button in buttonGroup:
+                button.draw()
+            self.promote()
 
 board = Board()

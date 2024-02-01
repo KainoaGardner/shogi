@@ -17,3 +17,7 @@ highLight.fill("#2d3436")
 highLight.set_alpha(100)
 
 font = pygame.font.SysFont("BIZ UDPゴシック",50)
+
+fontBig = pygame.font.Font("font/BIZUDPGothic-Regular.ttf",75)
+
+# naruText = ur""
