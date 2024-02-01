@@ -1,26 +1,36 @@
 import pygame
 from settings import *
 from util import importFolder
+from komamoves import *
 class Board():
     def __init__(self):
         self.board = [["後香","後桂","後銀","後金","後王","後金","後銀","後桂","後香"],
                       ["  ","後飛","  ","  ","  ","  ","  ","後角","  "],
                       ["後歩","後歩","後歩","後歩","後歩","後歩","後歩","後歩","後歩"],
                       ["  ","  ","  ","  ","  ","  ","  ","  ","  ",],
-                      ["  ","  ","  ","  ","先桂","  ","  ","  ","  ",],
+                      ["  ","  ","  ","  ","  ","  ","  ","  ","  ",],
                       ["  ","  ","  ","  ","  ","  ","  ","  ","  ",],
                       ["先歩","先歩","先歩","先歩","先歩","先歩","先歩","先歩","先歩"],
-                      ["  ","先角","先歩","  ","  ","  ","  ","先飛","  "],
+                      ["  ","先角","  ","  ","  ","  ","  ","先飛","  "],
                       ["先香","先桂","先銀","先金","先玉","先金","先銀","先桂","先香"]]
+        # self.board = [["後歩","  ","  ","  ","  ","  ","  ","  ","  ",],
+        #               ["  ","  ","  ","  ","先飛","  ","  ","  ","  ",],
+        #               ["  ","  ","  ","先歩","後桂","  ","  ","  ","  ",],
+        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  "],
+        #               ["  ","  ","先竜","  ","先馬","  ","後桂","先飛","  "],
+        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  "],
+        #               ["  ","  ","  ","  ","後桂","  ","  ","  ","  "],
+        #               ["  ","  ","先歩","  ","先玉","  ","  ","  ","  "],
+        #               ["  ","  ","  ","  ","  ","  ","  ","  ","  ",],]
 
         self.komaDict = importFolder("graphics/駒")
         self.clicks = []
         self.sente = True
 
         self.pieceList = ["歩", "香", "桂", "銀", "金", "角", "飛"]
-        self.senMochigoma = ["歩", "香", "桂", "銀", "金", "角", "飛"]
+        self.senMochigoma = []
         self.senMochigomaCount = []
-        self.goMochigoma = ["歩", "香", "桂", "銀", "金", "角", "飛"]
+        self.goMochigoma = []
         self.goMochigomaCount = []
         self.getMochigoma()
 
@@ -69,9 +79,18 @@ class Board():
 
     def displaySelected(self):
         if len(self.clicks) == 1:
-            x = self.clicks[0][0] * TILESIZE + MARGINSIZE + MOCHIGOMA
-            y = self.clicks[0][1] * TILESIZE + MARGINSIZE
-            screen.blit(highLight,(x,y))
+            if self.clicks[0][0] >= 0:
+                x = self.clicks[0][0] * TILESIZE + MARGINSIZE + MOCHIGOMA
+                y = self.clicks[0][1] * TILESIZE + MARGINSIZE
+                screen.blit(highLight,(x,y))
+            if self.clicks[0][0] == -1:
+                x = MARGINSIZE
+                y = MARGINSIZE + TILESIZE * (6 - self.clicks[0][1])
+                screen.blit(highLight, (x, y))
+            if self.clicks[0][0] == -2:
+                x = WIDTH - MARGINSIZE - MOCHIGOMA
+                y = HEIGHT - MARGINSIZE - TILESIZE * (7 - self.clicks[0][1])
+                screen.blit(highLight, (x, y))
 
     def movePiece(self):
         if len(self.clicks) == 2:
@@ -87,8 +106,47 @@ class Board():
                         self.board[movePos[1]][movePos[0]] = tile
                         self.board[tilePos[1]][tilePos[0]] = "  "
 
+                        if self.sente and endTile[0] == "後":
+                            if endTile[1] != "王":
+                                self.senMochigoma.append(endTile[1])
+                        elif not self.sente and endTile[0] == "先":
+                            if endTile[1] != "玉":
+                                self.goMochigoma.append(endTile[1])
+
+                        self.getMochigoma()
                         self.sente = not self.sente
                         self.moveHistory.append(((tilePos,tile),(movePos,endTile)))
+
+    def placeMochigoma(self):
+        if len(self.clicks) == 2:
+            tilePos = self.clicks[0]
+            tile = self.pieceList[self.clicks[0][1]]
+            movePos = self.clicks[1]
+            endTile = self.board[movePos[1]][movePos[0]]
+            if self.sente:
+                turn = "先"
+            else:
+                turn = "後"
+
+            if endTile == "  ":
+                if tile != "歩" or (tile == "歩" and self.checkCol歩(movePos[0], turn)):
+                    if tilePos[0] == -2:
+                        self.board[movePos[1]][movePos[0]] = f"先{tile}"
+                        self.senMochigoma.remove(tile)
+
+                    elif tilePos[0] == -1:   #gote
+                        self.board[movePos[1]][movePos[0]] = f"後{tile}"
+                        self.goMochigoma.remove(tile)
+
+                    self.getMochigoma()
+                    self.sente = not self.sente
+                    self.moveHistory.append(((tilePos, tile), (movePos, endTile)))
+
+    def checkCol歩(self,col,turn):
+        for r in range(9):
+            if self.board[r][col] == f"{turn}歩":
+                return False
+        return True
 
     def validMove(self,tile,tilePos,movePos):
         if self.sente:
@@ -97,49 +155,26 @@ class Board():
             direction = 1
 
         if tile[1] == "歩":
-            return self.valid歩(tilePos,movePos,direction)
+            return valid歩(tilePos,movePos,direction)
         if tile[1] == "香":
-            return self.valid香(tilePos,movePos)
+            return valid香(tilePos,movePos,self.sente,self.board)
         if tile[1] == "桂":
-            return self.valid桂(tilePos,movePos,direction)
-
-
+            return valid桂(tilePos,movePos,direction)
+        if tile[1] == "銀":
+            return valid銀(tilePos,movePos,direction)
+        if tile[1] in ["金","と","け","き","ぎ",]:
+            return valid金(tilePos,movePos,direction)
+        if tile[1] == "角":
+            return valid角(tilePos,movePos,self.sente,self.board)
+        if tile[1] == "飛":
+            return valid飛(tilePos,movePos,self.sente,self.board)
+        if tile[1] in ["王","玉"]:
+            return valid王(tilePos,movePos)
+        if tile[1] == "馬":
+            return valid王(tilePos,movePos) or valid角(tilePos,movePos,self.sente,self.board)
+        if tile[1] == "竜":
+            return valid王(tilePos, movePos) or valid飛(tilePos,movePos,self.sente,self.board)
         return False
-
-    def valid歩(self,tilePos,movePos,direction):
-        if (tilePos[0],tilePos[1] + direction) == movePos:
-            return True
-
-    def valid香(self,tilePos,movePos):
-        validPos = []
-        if tilePos[0] == movePos[0]:
-            if (self.sente and tilePos[1] > movePos[1]):
-                for i in range(tilePos[1]):
-                    if self.board[tilePos[1] - 1 - i][tilePos[0]][0] == " ":
-                        validPos.append((tilePos[0], tilePos[1] - 1 - i))
-                    elif self.board[tilePos[1] - 1 - i][tilePos[0]][0] == "後":
-                        validPos.append((tilePos[0], tilePos[1] - 1 - i))
-                        break
-                    else:
-                        break
-            if (not self.sente and tilePos[1] < movePos[1]):
-                for i in range(8 - tilePos[1]):
-                    if self.board[tilePos[1] + 1 + i][tilePos[0]][0] == " ":
-                        validPos.append((tilePos[0], tilePos[1] + 1 + i))
-                    elif self.board[tilePos[1] + 1 + i][tilePos[0]][0] == "先":
-                        validPos.append((tilePos[0], tilePos[1] + 1 + i))
-                        break
-                    else:
-                        break
-            if movePos in validPos:
-                return True
-
-    def valid桂(self,tilePos,movePos,direction):
-        if (tilePos[0] - 1,tilePos[1] + direction * 2) == movePos or (tilePos[0] + 1,tilePos[1] + direction * 2) == movePos:
-            return True
-
-    def valid銀(self,tilePos,movePos,direction):
-        pass
 
     def checkClick(self,pos):
         if self.board[pos[1]][pos[0]] != "  ":
@@ -149,13 +184,20 @@ class Board():
                 return True
         return False
 
+    def checkMochigomaClick(self,pos):
+        if self.sente and pos[0] == -2 and self.senMochigomaCount[pos[1]] > 0:
+            return True
+        elif not self.sente and pos[0] == -1 and self.goMochigomaCount[pos[1]] > 0:
+            return True
+        return False
+
     def getMochigoma(self):
         if self.sente:
             self.senMochigomaCount.clear()
             for tile in self.pieceList:
                 amount = self.senMochigoma.count(tile)
                 self.senMochigomaCount.append(amount)
-        if self.sente:
+        if not self.sente:
             self.goMochigomaCount.clear()
             for tile in self.pieceList:
                 amount = self.goMochigoma.count(tile)
@@ -191,9 +233,9 @@ class Board():
 
     def display(self):
         self.drawBoard()
+        self.drawMochigomaStand()
         self.displaySelected()
         self.displayTiles()
-        self.drawMochigomaStand()
         self.displayMochigoma()
         self.drawLines()
 
